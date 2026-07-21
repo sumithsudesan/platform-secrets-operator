@@ -11,28 +11,21 @@ Applications need secret data from systems such as Vault or AWS Secrets Manager,
 ## 3. Core Architecture
 
 External Backend
-  -> SecretStore / ManagedSecret CRs
+  -> ManagedSecret CR
+  -> Provider adapter selected from `spec.providerType`
   -> Reconcile loop in the operator
   -> Native Kubernetes Secret objects
 
 ## 4. Main Components
 
-### SecretStore
-Represents backend connection details and authentication configuration.
-
-Responsibilities:
-- identify the backend type
-- hold auth configuration
-- provide a reusable connection context for one backend scope
-
 ### ManagedSecret
 Represents desired cluster output.
 
 Responsibilities:
-- reference the target SecretStore
-- declare what remote secret to read
-- define target Secret name and namespace
-- define sync rules such as refresh interval and deletion policy
+- declare the provider type to use
+- carry provider-specific connection and auth configuration
+- declare the remote secret reference format required by the selected provider
+- define the target Kubernetes Secret name and sync rules
 
 ### Provider Interface
 A pluggable abstraction used by the controller.
@@ -41,14 +34,15 @@ Responsibilities:
 - fetch a secret from the configured backend
 - return structured secret data or errors
 - isolate provider-specific logic from controller logic
+- allow a new backend to be added as a separate adapter without changing the common CRD contract
 
 ### Controller
 The reconcile engine.
 
 Responsibilities:
 - load `ManagedSecret`
-- resolve the related `SecretStore`
-- call the provider
+- select the provider adapter from `spec.providerType`
+- call the provider interface
 - create or update the generated Secret
 - emit status conditions and events
 
@@ -62,16 +56,17 @@ Responsibilities:
 ## 6. MVP Scope
 
 For the first implementation pass, the repo should focus on:
-- one `SecretStore` CRD
 - one `ManagedSecret` CRD
 - provider interface abstraction
-- mock provider for local demo
+- one adapter for `vault`
+- one adapter for `aws-secrets-manager`
+- one mock provider adapter for local demo
 - Kubernetes Secret reconciliation
 
 ## 7. Success Criteria
 
 The implementation is considered successful when:
 - a `ManagedSecret` creates a Kubernetes Secret
-- a `SecretStore` can be reused across multiple `ManagedSecret` resources
 - changing the backend data can be reflected through the reconcile loop
 - a deleted Secret is recreated on the next reconcile
+- provider-specific behavior is isolated behind a stable interface

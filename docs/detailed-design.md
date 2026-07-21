@@ -4,51 +4,35 @@
 
 This document defines the implementation contract for the initial MVP of the secrets operator.
 
-## 2. Custom Resources
+## 2. Custom Resource
 
-### 2.1 SecretStore
-
-Purpose:
-- describe the backend endpoint and authentication model
-- act as a shared connection definition for many managed secrets
-
-Suggested fields:
-- `apiVersion`: `secrets.operator.io/v1alpha1`
-- `kind`: `SecretStore`
-- `metadata.name`
-- `spec.provider`: `vault` or `aws-secrets-manager`
-- `spec.endpoint`
-- `spec.auth`
-- `spec.namespace`
-
-Design intent:
-- one store is reusable across multiple ManagedSecret objects
-- the store should not carry workload-specific secret mapping
-
-### 2.2 ManagedSecret
+### 2.1 ManagedSecret
 
 Purpose:
 - describe the desired Kubernetes Secret output
+- carry provider selection and backend-specific config in one resource
 - map one or more remote secret entries to one generated Secret
 
 Suggested fields:
 - `metadata.name`
 - `metadata.namespace`
-- `spec.storeRef`
+- `spec.providerType`
 - `spec.targetSecretName`
-- `spec.remoteKey`
 - `spec.refreshInterval`
-- `spec.deliveryMode`
+- `spec.remoteRefs`
+- `spec.providerConfig`
 - `spec.deletionPolicy`
 
 Design intent:
 - `ManagedSecret` expresses intent for a single desired Secret object
 - the created Secret is derived from the external backend result
+- the common resource shape stays stable
+- provider-specific parsing of `remoteRefs` and `providerConfig` is handled inside the adapter selected by `spec.providerType`
 
 ## 3. Reconciliation Flow
 
 1. Watch `ManagedSecret` resources.
-2. Resolve the referenced `SecretStore`.
+2. Read `spec.providerType` and select the provider adapter.
 3. Use the provider interface to fetch the remote secret payload.
 4. Convert provider output into a Kubernetes Secret payload.
 5. Compare the desired payload with the existing Secret.
@@ -61,13 +45,14 @@ The provider interface should be intentionally small:
 
 ```go
  type Provider interface {
-     FetchSecret(ctx context.Context, ref SecretRef) (map[string][]byte, error)
+     FetchSecret(ctx context.Context, managedSecret ManagedSecret) (map[string][]byte, error)
  }
 ```
 
 Design rule:
 - controller logic must not depend on Vault or AWS SDK types directly
 - each provider adapter implements the same contract
+- a new backend can be added by introducing a new provider adapter and registering it under a new `spec.providerType`
 
 ## 5. Secret Naming and Ownership
 
@@ -111,7 +96,8 @@ The first implementation should prioritize clarity and narrative over full produ
 
 Recommended MVP behavior:
 - one mock provider implementation
-- one sample `SecretStore`
+- one `vault` adapter
+- one `aws-secrets-manager` adapter
 - one sample `ManagedSecret`
 - one sample workload using the generated Secret name
 
@@ -128,7 +114,7 @@ Recommended MVP behavior:
 1. `chore: scaffold design-first repo`
 2. `docs: add high-level architecture design`
 3. `docs: add detailed implementation design`
-4. `feat: add SecretStore and ManagedSecret API types`
+4. `feat: add ManagedSecret API type`
 5. `feat: generate CRD manifests`
 6. `feat: add mock provider interface`
 7. `feat: implement reconcile and Secret sync logic`
