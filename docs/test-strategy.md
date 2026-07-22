@@ -2,7 +2,7 @@
 
 ## 1. Current State
 
-This repository is currently in a design-first stage. The documentation describes the architecture, the `ManagedSecret` resource model, and the provider adapter model, but the actual operator controller, CRD manifests, and runtime implementation are not yet scaffolded.
+This repository is currently in a design-first stage. The documentation describes the architecture, the `SecretStore` and `ManagedSecret` resource model, and the provider adapter model, but the actual operator controller, CRD manifests, and runtime implementation are not yet scaffolded.
 
 Because of that, the test strategy must be split into two layers:
 
@@ -13,8 +13,9 @@ Because of that, the test strategy must be split into two layers:
 
 The design can be validated by reviewing the repo intent directly:
 
-- one stable `ManagedSecret` resource shape
-- `spec.providerType` selects the backend provider
+- `SecretStore` (connection/auth) and `ManagedSecret` (fetch/delivery intent) are separate,
+  RBAC-scoped resources; `ManagedSecret.spec.storeRef` links them
+- `SecretStore.spec.providerType` selects the backend provider
 - provider-specific semantics for `remoteRefs` and `providerConfig` live behind the provider adapter boundary
 - the controller stays generic and backend-agnostic
 
@@ -26,13 +27,17 @@ Once the operator implementation is added, the runtime validation plan should in
 
 ### 3.1 CRD Validation
 - generate CRD manifests
-- verify the schema for `ManagedSecret`
+- verify the schema for both `SecretStore` and `ManagedSecret`
 - confirm that the expected fields are accepted by Kubernetes
+- confirm `storeRef` resolution fails cleanly (`StoreNotFound`) when the referenced
+  `SecretStore` does not exist
 
 ### 3.2 Mock Provider Validation
-- use a mock provider for the first end-to-end test
-- verify that a `ManagedSecret` produces the expected derived Kubernetes `Secret`
+- use a mock `SecretStore` for the first end-to-end test
+- verify that a `ManagedSecret` referencing it produces the expected derived Kubernetes `Secret`
 - verify reconcile behavior for create, update, and delete cases
+- verify that two `ManagedSecret`s targeting the same Secret name in a namespace produce
+  `ConflictError` on the second one
 
 ### 3.3 Provider Adapter Validation
 - confirm that each provider implementation can read its own `remoteRefs` and `providerConfig`
