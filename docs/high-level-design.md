@@ -27,14 +27,16 @@ Responsibilities:
 - declare the remote secret reference format required by the selected provider
 - define the target Kubernetes Secret name and sync rules
 
-### Provider Interface
-A pluggable abstraction used by the controller.
+### Provider Layer
+A pluggable adapter model used by the controller.
 
 Responsibilities:
 - fetch a secret from the configured backend
 - return structured secret data or errors
 - isolate provider-specific logic from controller logic
-- allow a new backend to be added as a separate adapter without changing the common CRD contract
+- allow a new backend to be added as a separate provider implementation without changing the common CRD contract
+
+The design intentionally keeps the top-level `ManagedSecret` shape stable while letting each provider implementation define the backend-specific form of `remoteRefs` and `providerConfig`.
 
 ### Controller
 The reconcile engine.
@@ -57,7 +59,7 @@ Responsibilities:
 
 For the first implementation pass, the repo should focus on:
 - one `ManagedSecret` CRD
-- provider interface abstraction
+- a provider adapter model with backend-specific behavior
 - one adapter for `vault`
 - one adapter for `aws-secrets-manager`
 - one mock provider adapter for local demo

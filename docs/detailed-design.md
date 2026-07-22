@@ -39,20 +39,16 @@ Design intent:
 6. Create or update the Secret if needed.
 7. Update status conditions and emit events.
 
-## 4. Provider Interface
+## 4. Provider Implementation Model
 
-The provider interface should be intentionally small:
-
-```go
- type Provider interface {
-     FetchSecret(ctx context.Context, managedSecret ManagedSecret) (map[string][]byte, error)
- }
-```
+The provider layer should follow a backend-specific adapter model.
 
 Design rule:
 - controller logic must not depend on Vault or AWS SDK types directly
-- each provider adapter implements the same contract
-- a new backend can be added by introducing a new provider adapter and registering it under a new `spec.providerType`
+- each provider implementation owns its own remote reference format and connection configuration
+- a new backend can be added by introducing a separate provider implementation and registering it under a new `spec.providerType`
+
+This allows the operator to stay generic while still supporting provider-specific semantics for `remoteRefs`, `providerConfig`, and auth behavior.
 
 ## 5. Secret Naming and Ownership
 

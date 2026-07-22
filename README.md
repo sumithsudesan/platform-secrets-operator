@@ -12,6 +12,8 @@ For the first implementation, the user-facing CRD is a single `ManagedSecret` re
 
 This keeps the API simple for an interview/demo project while still allowing provider-specific behavior behind a stable interface.
 
+The provider layer is designed as an extensible adapter model. Each backend family such as Vault, AWS Secrets Manager, or a mock/demo provider can provide its own read logic and configuration shape. The controller remains generic and only relies on the selected provider type to route reconciliation to the correct provider implementation.
+
 ### Minimal `ManagedSecret` shape
 A minimal `ManagedSecret` should include the following fields:
 - `metadata.name`
@@ -22,6 +24,8 @@ A minimal `ManagedSecret` should include the following fields:
 - `spec.remoteRefs` — one or more remote references to read from the provider
 - `spec.providerConfig` — backend-specific configuration block whose shape depends on `spec.providerType`
 - `spec.deletionPolicy` — cleanup behavior when the remote value is missing or the sync fails
+
+The operator does not require a single universal `remoteRefs` schema across all providers. Instead, each provider adapter can interpret `remoteRefs` according to its own backend contract. This is the extension point that makes it easy to add new provider types later.
 
 Example for Vault:
 
